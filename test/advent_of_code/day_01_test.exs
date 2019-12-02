@@ -1,21 +1,35 @@
 defmodule AdventOfCode.Day01Test do
   use ExUnit.Case
+  doctest AdventOfCode.Day01
 
   import AdventOfCode.Day01
 
-  @tag :skip
+  # @tag :skip
   test "part1" do
-    input = nil
+    input = """
+    12
+    14
+    1969
+    100756
+    """
+
     result = part1(input)
 
-    assert result
+    assert result == 34_241
   end
 
-  @tag :skip
+  # @tag :skip
   test "part2" do
-    input = nil
+    input = "14"
     result = part2(input)
+    assert result == 2
 
-    assert result
+    input = "1969"
+    result = part2(input)
+    assert result == 966
+
+    input = "100756"
+    result = part2(input)
+    assert result == 50346
   end
 end
