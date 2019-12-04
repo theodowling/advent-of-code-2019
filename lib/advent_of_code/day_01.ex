@@ -3,7 +3,7 @@ defmodule AdventOfCode.Day01 do
 
   @spec part1(binary) :: number()
   def part1(input) do
-    inputs = Input.parse(input)
+    inputs = Input.parse_lines(input)
 
     Enum.map(inputs, fn mass ->
       fuel_required(mass)
@@ -13,7 +13,7 @@ defmodule AdventOfCode.Day01 do
 
   @spec part2(binary) :: number()
   def part2(input) do
-    inputs = Input.parse(input)
+    inputs = Input.parse_lines(input)
 
     Enum.map(inputs, fn mass ->
       total_fuel_required(mass, 0)
