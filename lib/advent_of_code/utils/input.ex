@@ -7,4 +7,8 @@ defmodule AdventOfCode.Utils.Input do
   def comma_separated_integers(input) do
     input |> String.split(",", trim: true) |> Enum.map(&String.to_integer(&1))
   end
+
+  def comma_separated(input) do
+    input |> String.split(",", trim: true)
+  end
 end
