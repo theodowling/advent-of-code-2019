@@ -2,110 +2,36 @@ defmodule AdventOfCode.Day05 do
   alias AdventOfCode.Utils.Input
 
   @spec part1(binary) :: binary
-  def part1(integers) do
+  def part1(integers, input \\ 1) do
     list =
       integers
       |> Input.comma_separated_integers()
 
     list
-    |> new_perform_actions(0)
+    |> perform_actions(0, input)
     |> Enum.map(&Integer.to_string(&1))
     |> Enum.join(",")
   end
 
-  @spec new_perform_actions(list(), integer()) :: any
-  def new_perform_actions(list, pos) when pos > length(list), do: list
+  @spec perform_actions(list(), integer(), integer()) :: any
+  def perform_actions(list, pos, _input) when pos > length(list), do: list
 
-  def new_perform_actions(list, pos) do
-    perform_action(Enum.at(list, pos), list, pos)
+  def perform_actions(list, pos, input) do
+    perform_action(Enum.at(list, pos), list, pos, input)
   end
 
-  @spec perform_action(integer(), list(), integer()) :: list()
-  def perform_action(99, list, _pos), do: list
+  @spec perform_action(integer(), list(), integer(), integer()) :: list()
+  def perform_action(99, list, _pos, _), do: list
 
-  def perform_action(1, list, pos) do
-    [1, a, b, c] = Enum.slice(list, pos, 4)
-    IO.inspect({[1, a, b, c], list, pos})
-    updated_list = List.update_at(list, c, fn _ -> Enum.at(list, a) + Enum.at(list, b) end)
-    new_perform_actions(updated_list, pos + 4)
-  end
-
-  def perform_action(2, list, pos) do
-    [2, a, b, c] = Enum.slice(list, pos, 4)
-    IO.inspect({[2, a, b, c], list, pos})
-    updated_list = List.update_at(list, c, fn _ -> Enum.at(list, a) * Enum.at(list, b) end)
-    new_perform_actions(updated_list, pos + 4)
-  end
-
-  def perform_action(3, list, pos) do
-    [3, a] = Enum.slice(list, pos, 2)
-    IO.inspect({[3, a], list, pos})
-    n = IO.gets("Input parameter\n")
-    updated_list = List.update_at(list, a, fn _ -> String.to_integer(String.trim(n)) end)
-    new_perform_actions(updated_list, pos + 2)
-  end
-
-  def perform_action(4, list, pos) do
-    [4, a] = Enum.slice(list, pos, 2)
-    IO.inspect({[4, a], list, pos})
-    IO.inspect("Outputting value: #{Enum.at(list, a)}")
-    new_perform_actions(list, pos + 2)
-  end
-
-  def perform_action(5, list, pos) do
-    [5, a, b] = Enum.slice(list, pos, 3)
-    IO.inspect({[5, a, b], list, pos})
-
-    if Enum.at(list, a) != 0 do
-      new_perform_actions(list, Enum.at(list, b))
-    else
-      new_perform_actions(list, pos + 3)
-    end
-  end
-
-  def perform_action(6, list, pos) do
-    [6, a, b] = Enum.slice(list, pos, 3)
-    IO.inspect({[6, a, b], list, pos})
-
-    if Enum.at(list, a) == 0 do
-      new_perform_actions(list, Enum.at(list, b))
-    else
-      new_perform_actions(list, pos + 3)
-    end
-  end
-
-  def perform_action(7, list, pos) do
-    [7, a, b, c] = Enum.slice(list, pos, 4)
-    IO.inspect({[7, a, b, c], list, pos})
-
-    updated_list =
-      if Enum.at(list, a) < Enum.at(list, b) do
-        List.update_at(list, c, fn _ -> 1 end)
+  def perform_action(parameter, list, pos, input) do
+    {action, check_immediate} =
+      if parameter > 99 do
+        {rem(parameter, 100), true}
       else
-        List.update_at(list, c, fn _ -> 0 end)
+        {parameter, false}
       end
 
-    new_perform_actions(updated_list, pos + 4)
-  end
-
-  def perform_action(8, list, pos) do
-    [8, a, b, c] = Enum.slice(list, pos, 4)
-    IO.inspect({[8, a, b, c], list, pos})
-
-    updated_list =
-      if Enum.at(list, a) == Enum.at(list, b) do
-        List.update_at(list, c, fn _ -> 1 end)
-      else
-        List.update_at(list, c, fn _ -> 0 end)
-      end
-
-    new_perform_actions(updated_list, pos + 4)
-  end
-
-  def perform_action(parameter, list, pos) when parameter > 99 do
-    action = rem(parameter, 100)
-
-    IO.inspect({parameter, list, pos})
+    IO.inspect({parameter, check_immediate, list, pos})
 
     n =
       cond do
@@ -121,41 +47,49 @@ defmodule AdventOfCode.Day05 do
         updated_list =
           case action do
             3 ->
-              IO.inspect("Updating with: 1")
-              List.update_at(list, a, fn _ -> 1 end)
+              IO.inspect("Updating with: #{input}")
+              List.update_at(list, a, fn _ -> input end)
 
             4 ->
               IO.inspect("Outputting value: #{Enum.at(list, a)}")
               list
           end
 
-        new_perform_actions(updated_list, pos + 2)
+        perform_actions(updated_list, pos + 2, input)
 
       3 ->
         [parameter, a, b] = Enum.slice(list, pos, 3)
-        a_val = if rem(div(parameter, 100), 10) == 1, do: a, else: Enum.at(list, a)
-        b_val = if rem(div(parameter, 1000), 10) == 1, do: b, else: Enum.at(list, b)
+
+        a_val =
+          if check_immediate and rem(div(parameter, 100), 10) == 1, do: a, else: Enum.at(list, a)
+
+        b_val =
+          if check_immediate and rem(div(parameter, 1000), 10) == 1, do: b, else: Enum.at(list, b)
 
         case action do
           5 ->
             if a_val != 0 do
-              new_perform_actions(list, b_val)
+              perform_actions(list, b_val, input)
             else
-              new_perform_actions(list, pos + 3)
+              perform_actions(list, pos + 3, input)
             end
 
           6 ->
             if a_val == 0 do
-              new_perform_actions(list, b_val)
+              perform_actions(list, b_val, input)
             else
-              new_perform_actions(list, pos + 3)
+              perform_actions(list, pos + 3, input)
             end
         end
 
       4 ->
         [parameter, a, b, c] = Enum.slice(list, pos, 4)
-        a_val = if rem(div(parameter, 100), 10) == 1, do: a, else: Enum.at(list, a)
-        b_val = if rem(div(parameter, 1000), 10) == 1, do: b, else: Enum.at(list, b)
+
+        a_val =
+          if check_immediate and rem(div(parameter, 100), 10) == 1, do: a, else: Enum.at(list, a)
+
+        b_val =
+          if check_immediate and rem(div(parameter, 1000), 10) == 1, do: b, else: Enum.at(list, b)
 
         updated_list =
           case action do
@@ -180,7 +114,7 @@ defmodule AdventOfCode.Day05 do
               end
           end
 
-        new_perform_actions(updated_list, pos + 4)
+        perform_actions(updated_list, pos + 4, input)
     end
   end
 
@@ -191,7 +125,7 @@ defmodule AdventOfCode.Day05 do
       |> Input.comma_separated_integers()
 
     list
-    |> new_perform_actions(0)
+    |> perform_actions(0, 5)
     |> Enum.map(&Integer.to_string(&1))
     |> Enum.join(",")
   end
