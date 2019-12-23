@@ -2,7 +2,7 @@ defmodule AdventOfCode.Day16 do
   @base_pattern [0, 1, 0, -1]
 
   @doc """
-      iex> l = AdventOfCode.Day16.part1("80871224585914546619083218645595", 100, true)
+      iex> l = AdventOfCode.Day16.part1("80871224585914546619083218645595", 100)
       ...> String.length(l) == 8
       true
   """
