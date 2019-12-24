@@ -8,9 +8,13 @@ defmodule AdventOfCode.Day05 do
       integers
       |> Input.comma_separated_integers()
 
+    original_length = length(list)
+
     list
     |> run(%{inputs: [1]})
+    |> IO.inspect()
     |> Enum.map(&Integer.to_string(&1))
+    |> Enum.take(original_length)
     |> Enum.join(",")
   end
 

@@ -27,11 +27,11 @@
         },
         {
             "type": "mix_task",
-            "name": "mix test day_05",
+            "name": "mix test day_09",
             "request": "launch",
             "task": "test",
             "taskArgs": [
-                "test/advent_of_code/day_05_test.exs",
+                "test/advent_of_code/day_09_test.exs",
                 "--trace"
             ],
             "startApps": true,

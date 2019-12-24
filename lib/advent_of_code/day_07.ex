@@ -103,6 +103,7 @@ defmodule AdventOfCode.Day07 do
     for proc <- processes do
       Task.await(proc)
     end
+    # |> IO.inspect()
     |> Enum.at(-1)
   end
 

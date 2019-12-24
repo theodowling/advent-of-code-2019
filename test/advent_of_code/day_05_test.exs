@@ -24,9 +24,9 @@ defmodule AdventOfCode.Day05Test do
   test "part2" do
     # value should be 1
     assert part2("3,12,6,12,15,1,13,14,13,4,13,99,-1,0,1,9", %{inputs: [1]})
-    # value should be 0
+    # # value should be 0
     assert part2("3,3,1105,-1,9,1101,0,0,12,4,12,99,1", %{inputs: [0]})
-    # value should be 0
+    # # value should be 0
     assert part2("3,12,6,12,15,1,13,14,13,4,13,99,-1,0,1,9", %{inputs: [0]})
   end
 end

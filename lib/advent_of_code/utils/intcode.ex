@@ -1,58 +1,54 @@
 defmodule AdventOfCode.Utils.Intcode do
   defmodule State do
-    defstruct inputs: nil, outputs: nil, repeat: false, blocking: true, next_process: nil
+    defstruct inputs: nil,
+              outputs: nil,
+              repeat: false,
+              blocking: true,
+              next_process: nil,
+              relative_base: 0
   end
 
-  @spec run([integer()], any) :: [integer()]
   def run(program, state) do
-    run(program, 0, state)
-  end
+    updated_program =
+      program
+      |> Enum.with_index()
+      |> Enum.map(fn {v, k} -> {k, v} end)
+      |> Enum.into(%{})
 
-  @spec run([integer()], integer(), map()) :: [integer()]
-  def run(program, pos, _state) when pos > length(program), do: program
+    if Map.has_key?(state, :relative_base),
+      do: run(updated_program, 0, state),
+      else: run(updated_program, 0, Map.put(state, :relative_base, 0))
+  end
 
   def run(program, pos, state) do
-    execute_action(Enum.at(program, pos), program, pos, state)
+    execute_action(determine_action_and_values(program[pos]), program, pos, state)
   end
 
-  @spec execute_action(integer(), [integer()], integer(), map(), boolean) :: any
-  def execute_action(code, program, pos, state, check_immediate \\ false)
-
   # Might need to repeat
-  def execute_action(99, program, _, %{repeat: true} = state, _) do
-    execute_action(Enum.at(program, 0), program, 0, state)
+  def execute_action([99 | _], program, _, %{repeat: true} = state) do
+    execute_action(program[0], program, 0, state)
   end
 
   # Otherwise it will just terminate
-  def execute_action(99, program, _, _, _), do: program
+  def execute_action([99 | _], program, _, _), do: program |> Enum.map(fn {_, v} -> v end)
 
-  def execute_action(action, program, pos, state, _) when action > 99 do
-    # IO.inspect("at action: #{action} on pos #{pos}")
+  def execute_action([1, a, b, c], program, pos, state) do
+    {a, b, c} =
+      {deref(a, program, pos + 1, state), deref(b, program, pos + 2, state),
+       deref(c, program, pos + 3, state, :pointer)}
 
-    action
-    |> determine_action_and_values(program, pos, true)
-    |> execute_action_with_values(program, pos, state)
+    run(Map.put(program, c, a + b), pos + 4, state)
   end
 
-  def execute_action(action, program, pos, state, _) do
-    # IO.inspect("at action: #{action} on pos #{pos}")
+  def execute_action([2, a, b, c], program, pos, state) do
+    {a, b, c} =
+      {deref(a, program, pos + 1, state), deref(b, program, pos + 2, state),
+       deref(c, program, pos + 3, state, :pointer)}
 
-    action
-    |> determine_action_and_values(program, pos, false)
-    |> execute_action_with_values(program, pos, state)
+    run(Map.put(program, c, a * b), pos + 4, state)
   end
 
-  def execute_action_with_values({1, a, b, c}, program, pos, state) do
-    updated_program = List.update_at(program, c, fn _ -> a + b end)
-    execute_action(Enum.at(updated_program, pos + 4), updated_program, pos + 4, state)
-  end
-
-  def execute_action_with_values({2, a, b, c}, program, pos, state) do
-    updated_program = List.update_at(program, c, fn _ -> a * b end)
-    execute_action(Enum.at(updated_program, pos + 4), updated_program, pos + 4, state)
-  end
-
-  def execute_action_with_values({3, a, _, _}, program, pos, %{blocking: true} = state) do
+  def execute_action([3, a | _], program, pos, %{blocking: true} = state) do
     input =
       receive do
         {:input, input} -> input
@@ -60,119 +56,110 @@ defmodule AdventOfCode.Utils.Intcode do
         10_000 -> :timeout
       end
 
+    a = deref(a, program, pos + 1, state, :pointer)
     IO.inspect("Received #{input} as a message")
-    updated_program = List.update_at(program, a, fn _ -> input end)
-    execute_action(Enum.at(updated_program, pos + 2), updated_program, pos + 2, state)
+    run(Map.put(program, a, input), pos + 2, state)
   end
 
-  def execute_action_with_values({3, a, _, _}, program, pos, %{inputs: inputs} = state) do
+  def execute_action([3, a | _], program, pos, %{inputs: inputs} = state) do
     [input | rest] = inputs
+    a = deref(a, program, pos + 1, state, :pointer)
     updated_state = Map.put(state, :inputs, rest)
-    updated_program = List.update_at(program, a, fn _ -> input end)
-    execute_action(Enum.at(updated_program, pos + 2), updated_program, pos + 2, updated_state)
+    run(Map.put(program, a, input), pos + 2, updated_state)
   end
 
-  def execute_action_with_values(
-        {4, a, _, _},
+  def execute_action(
+        [4, a | _],
         program,
         pos,
-        %{inputs: _inputs, blocking: true, next_process: next_process} = state
+        %{blocking: true, next_process: next_process} = state
       ) do
+    a = deref(a, program, pos + 1, state)
+
     if next_process == nil do
-      Enum.at(program, a)
+      a
     else
-      # IO.inspect("Sending #{Enum.at(program, a)} to next_process #{next_process}")
-
       if next_process |> Process.whereis() do
-        send(next_process, {:input, Enum.at(program, a)})
-        execute_action(Enum.at(program, pos + 2), program, pos + 2, state)
+        send(next_process, {:input, a})
+        run(program, pos + 2, state)
       else
-        Enum.at(program, a)
+        a
       end
     end
   end
 
-  def execute_action_with_values({4, a, _, _}, program, pos, state) do
-    IO.inspect("Value at #{a} is #{Enum.at(program, a)}")
-    execute_action(Enum.at(program, pos + 2), program, pos + 2, state)
+  def execute_action([4, a | _], program, pos, state) do
+    a = deref(a, program, pos + 1, state)
+    IO.inspect("Value is #{a}")
+    run(program, pos + 2, state)
   end
 
-  def execute_action_with_values({5, a, b, _}, program, pos, state) do
+  def execute_action([5, a, b | _], program, pos, state) do
+    a = deref(a, program, pos + 1, state)
+    b = deref(b, program, pos + 2, state)
+
     if a != 0 do
-      execute_action(Enum.at(program, b), program, b, state)
+      run(program, b, state)
     else
-      execute_action(Enum.at(program, pos + 3), program, pos + 3, state)
+      run(program, pos + 3, state)
     end
   end
 
-  def execute_action_with_values({6, a, b, _}, program, pos, state) do
+  def execute_action([6, a, b | _], program, pos, state) do
+    a = deref(a, program, pos + 1, state)
+    b = deref(b, program, pos + 2, state)
+
     if a == 0 do
-      execute_action(Enum.at(program, b), program, b, state)
+      run(program, b, state)
     else
-      execute_action(Enum.at(program, pos + 3), program, pos + 3, state)
+      run(program, pos + 3, state)
     end
   end
 
-  def execute_action_with_values({7, a, b, c}, program, pos, state) do
-    updated_program =
-      if a < b do
-        List.update_at(program, c, fn _ -> 1 end)
-      else
-        List.update_at(program, c, fn _ -> 0 end)
-      end
+  def execute_action([7, a, b, c], program, pos, state) do
+    a = deref(a, program, pos + 1, state)
+    b = deref(b, program, pos + 2, state)
+    c = deref(c, program, pos + 3, state, :pointer)
 
-    execute_action(Enum.at(updated_program, pos + 4), updated_program, pos + 4, state)
+    if a < b do
+      run(Map.put(program, c, 1), pos + 4, state)
+    else
+      run(Map.put(program, c, 0), pos + 4, state)
+    end
   end
 
-  def execute_action_with_values({8, a, b, c}, program, pos, state) do
-    updated_program =
-      if a == b do
-        List.update_at(program, c, fn _ -> 1 end)
-      else
-        List.update_at(program, c, fn _ -> 0 end)
-      end
+  def execute_action([8, a, b, c], program, pos, state) do
+    a = deref(a, program, pos + 1, state)
+    b = deref(b, program, pos + 2, state)
+    c = deref(c, program, pos + 3, state, :pointer)
 
-    execute_action(Enum.at(updated_program, pos + 4), updated_program, pos + 4, state)
+    if a == b do
+      run(Map.put(program, c, 1), pos + 4, state)
+    else
+      run(Map.put(program, c, 0), pos + 4, state)
+    end
   end
 
-  defp determine_action_and_values(_action, program, pos, check_immediate) do
-    sliced = Enum.slice(program, pos, 4)
+  def execute_action([9, a | _], program, pos, state) do
+    a = deref(a, program, pos + 1, state)
+    updated_state = Map.update(state, :relative_base, 0, &(&1 + a))
+    run(program, pos + 2, updated_state)
+  end
 
-    [action_integer, a, b, c] =
-      case length(sliced) do
-        4 ->
-          [action_integer, a, b, c] = sliced
-          [action_integer, a, b, c]
+  defp deref(mode, program, pos, base, type \\ :value),
+    do: do_deref(mode, program, pos, base, type) || 0
 
-        3 ->
-          [action_integer, a, b] = sliced
-          [action_integer, a, b, nil]
+  defp do_deref(0, program, pos, _base, :value), do: program[program[pos]]
+  defp do_deref(1, program, pos, _base, _), do: program[pos]
+  defp do_deref(2, program, pos, %{relative_base: base}, :value), do: program[base + program[pos]]
+  defp do_deref(0, program, pos, _base, :pointer), do: program[pos]
+  defp do_deref(2, program, pos, %{relative_base: base}, :pointer), do: base + program[pos]
 
-        2 ->
-          [action_integer, a] = sliced
-          [action_integer, a, nil, nil]
-      end
-
-    action = rem(action_integer, 100)
-
-    # actions 3 and 4 are always immediate positions
-    [a_val, b_val] =
-      if action in [3, 4] do
-        [a, b]
-      else
-        a_val =
-          if check_immediate and rem(div(action_integer, 100), 10) == 1,
-            do: a,
-            else: Enum.at(program, a)
-
-        b_val =
-          if check_immediate and rem(div(action_integer, 1000), 10) == 1,
-            do: b,
-            else: Enum.at(program, b)
-
-        [a_val, b_val]
-      end
-
-    {action, a_val, b_val, c}
+  defp determine_action_and_values(ins) do
+    {ins, op} = {div(ins, 100), Integer.mod(ins, 100)}
+    {ins, c} = {div(ins, 10), Integer.mod(ins, 10)}
+    {ins, b} = {div(ins, 10), Integer.mod(ins, 10)}
+    a = Integer.mod(ins, 10)
+    [op, c, b, a]
   end
 end
