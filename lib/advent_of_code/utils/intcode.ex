@@ -1,11 +1,13 @@
 defmodule AdventOfCode.Utils.Intcode do
   defmodule State do
-    defstruct inputs: nil,
-              outputs: nil,
+    defstruct inputs: [],
+              outputs: [],
               repeat: false,
-              blocking: true,
+              blocking: false,
               next_process: nil,
-              relative_base: 0
+              relative_base: 0,
+              return_state: false,
+              exit_when_empty_inputs: true
   end
 
   def run(program, state) do
@@ -15,9 +17,9 @@ defmodule AdventOfCode.Utils.Intcode do
       |> Enum.map(fn {v, k} -> {k, v} end)
       |> Enum.into(%{})
 
-    if Map.has_key?(state, :relative_base),
-      do: run(updated_program, 0, state),
-      else: run(updated_program, 0, Map.put(state, :relative_base, 0))
+    updated_state = Map.merge(%State{}, state)
+
+    run(updated_program, 0, updated_state)
   end
 
   def run(program, pos, state) do
@@ -30,7 +32,13 @@ defmodule AdventOfCode.Utils.Intcode do
   end
 
   # Otherwise it will just terminate
-  def execute_action([99 | _], program, _, _), do: program |> Enum.map(fn {_, v} -> v end)
+  def execute_action([99 | _], program, pos, state) do
+    if state.return_state do
+      {program, pos, state}
+    else
+      program |> Enum.map(fn {_, v} -> v end)
+    end
+  end
 
   def execute_action([1, a, b, c], program, pos, state) do
     {a, b, c} =
@@ -59,6 +67,19 @@ defmodule AdventOfCode.Utils.Intcode do
     a = deref(a, program, pos + 1, state, :pointer)
     IO.inspect("Received #{input} as a message")
     run(Map.put(program, a, input), pos + 2, state)
+  end
+
+  def execute_action(
+        [3, _ | _],
+        program,
+        pos,
+        %{inputs: [], exit_when_empty_inputs: true} = state
+      ) do
+    if state.return_state do
+      {program, pos, state}
+    else
+      program |> Enum.map(fn {_, v} -> v end)
+    end
   end
 
   def execute_action([3, a | _], program, pos, %{inputs: inputs} = state) do
@@ -90,8 +111,9 @@ defmodule AdventOfCode.Utils.Intcode do
 
   def execute_action([4, a | _], program, pos, state) do
     a = deref(a, program, pos + 1, state)
-    IO.inspect("Value is #{a}")
-    run(program, pos + 2, state)
+    # IO.inspect("Has value #{a}")
+    updated_state = Map.update(state, :outputs, [a], &[a | &1])
+    run(program, pos + 2, updated_state)
   end
 
   def execute_action([5, a, b | _], program, pos, state) do
@@ -155,7 +177,7 @@ defmodule AdventOfCode.Utils.Intcode do
   defp do_deref(0, program, pos, _base, :pointer), do: program[pos]
   defp do_deref(2, program, pos, %{relative_base: base}, :pointer), do: base + program[pos]
 
-  defp determine_action_and_values(ins) do
+  def determine_action_and_values(ins) do
     {ins, op} = {div(ins, 100), Integer.mod(ins, 100)}
     {ins, c} = {div(ins, 10), Integer.mod(ins, 10)}
     {ins, b} = {div(ins, 10), Integer.mod(ins, 10)}
