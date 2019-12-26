@@ -63,7 +63,7 @@ defmodule AdventOfCode.Day11 do
     for y <- y2..y1 do
       for x <- x2..x1 do
         if map[{x, y}] do
-          "▣"
+          "⬜"
         else
           " "
         end
